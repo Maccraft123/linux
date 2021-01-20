@@ -64,6 +64,7 @@ struct clk_core {
 	struct clk_parent_map	*parents;
 	u8			num_parents;
 	u8			new_parent_index;
+	u8			default_parent_index;
 	unsigned long		rate;
 	unsigned long		req_rate;
 	unsigned long		new_rate;

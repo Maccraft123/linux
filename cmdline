@@ -1,0 +1,1 @@
+console=tty1 root=PARTLABEL=Root rootfstype=f2fs rootwait rw
