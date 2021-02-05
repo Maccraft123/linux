@@ -689,6 +689,14 @@ config BATTERY_GOLDFISH
 	  Say Y to enable support for the battery and AC power in the
 	  Goldfish emulator.
 
+config BATTERY_RK817
+	bool "RK817 Battery"
+	depends on MFD_RK808
+
+config CHARGER_RK817
+	bool "RK817 Charger"
+	depends on MFD_RK808
+
 config BATTERY_RT5033
 	tristate "RT5033 fuel gauge support"
 	depends on MFD_RT5033

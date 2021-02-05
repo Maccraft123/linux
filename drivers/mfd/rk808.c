@@ -72,7 +72,7 @@ static bool rk817_is_volatile_reg(struct device *dev, unsigned int reg)
 		return true;
 	}
 
-	return true;
+	return true; // ???
 }
 
 static const struct regmap_config rk818_regmap_config = {
@@ -153,6 +153,8 @@ static const struct mfd_cell rk808s[] = {
 static const struct mfd_cell rk817s[] = {
 	{ .name = "rk808-clkout",},
 	{ .name = "rk808-regulator",},
+	{ .name = "rk817-battery", .of_compatible = "rk817,battery", },
+	{ .name = "rk817-charger", .of_compatible = "rk817,charger", },
 	{
 		.name = "rk805-pwrkey",
 		.num_resources = ARRAY_SIZE(rk817_pwrkey_resources),
@@ -524,6 +526,7 @@ static int rk808_probe(struct i2c_client *client,
 	unsigned char pmic_id_msb, pmic_id_lsb;
 	int ret;
 	int i;
+	const struct regmap_irq_chip *irq_chip, *battery_irq_chip = NULL;
 
 	rk808 = devm_kzalloc(&client->dev, sizeof(*rk808), GFP_KERNEL);
 	if (!rk808)
@@ -630,6 +633,19 @@ static int rk808_probe(struct i2c_client *client,
 			return ret;
 		}
 	}
+
+        if (battery_irq_chip) {
+                ret = regmap_add_irq_chip(rk808->regmap, client->irq,
+                                          IRQF_ONESHOT | IRQF_SHARED, -1,
+                                          battery_irq_chip,
+                                          &rk808->battery_irq_data);
+                if (ret) {
+                        dev_err(&client->dev,
+                                "Failed to add batterry irq_chip %d\n", ret);
+                        regmap_del_irq_chip(client->irq, rk808->irq_data);
+                        return ret;
+                }
+        }
 
 	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_NONE,
 			      cells, nr_cells, NULL, 0,
