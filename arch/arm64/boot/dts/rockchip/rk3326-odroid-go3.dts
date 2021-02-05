@@ -189,6 +189,28 @@
 		regulator-max-microvolt = <3800000>;
 	};
 
+        rk817-sound {
+                compatible = "simple-audio-card";
+                simple-audio-card,format = "i2s";
+                simple-audio-card,name = "rockchip,rk817-codec";
+                simple-audio-card,mclk-fs = <256>;
+                simple-audio-card,widgets =
+                        "Microphone", "Mic Jack",
+                        "Headphones", "Headphone Jack";
+                simple-audio-card,routing =
+                        "MIC_IN", "Mic Jack",
+                        "Headphone Jack", "HPOL",
+                        "Headphone Jack", "HPOR";
+                simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+                simple-audio-card,codec-hp-det = <1>;
+                simple-audio-card,cpu {
+                        sound-dai = <&i2s1_2ch>;
+                };
+                simple-audio-card,codec {
+                        sound-dai = <&rk817_codec>;
+                };
+        };
+
 	vcc_host: vcc_host {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_host";
@@ -334,6 +356,18 @@
 
                         extcon = <&u2phy>;
                 };
+
+                rk817_codec: codec {
+                        #sound-dai-cells = <0>;
+                        compatible = "rockchip,rk817-codec";
+                        clocks = <&cru SCLK_I2S1_OUT>;
+                        clock-names = "mclk";
+                        pinctrl-names = "default";
+                        pinctrl-0 = <&i2s1_2ch_mclk>;
+                        hp-volume = <20>;
+                        spk-volume = <3>;
+                        status = "okay";
+		};
 
 		regulators {
 			vdd_logic: DCDC_REG1 {
