@@ -1366,28 +1366,28 @@ static int rk817_bat_get_charge_status(struct rk817_battery_device *battery)
 
 	switch (status) {
 	case CHRG_OFF:
-		printk("charge off...\n");
+		DBG("charge off...\n");
 		break;
 	case DEAD_CHRG:
-		printk("dead charge...\n");
+		DBG("dead charge...\n");
 		break;
 	case TRICKLE_CHRG:
-		printk("trickle charge...\n");
+		DBG("trickle charge...\n");
 		break;
 	case CC_OR_CV_CHRG:
-		printk("CC or CV charge...\n");
+		DBG("CC or CV charge...\n");
 		break;
 	case CHARGE_FINISH:
-		printk("charge finish...\n");
+		DBG("charge finish...\n");
 		break;
 	case USB_OVER_VOL:
-		printk("USB over voltage...\n");
+		DBG("USB over voltage...\n");
 		break;
 	case BAT_TMP_ERR:
-		printk("battery temperature error...\n");
+		DBG("battery temperature error...\n");
 		break;
 	case BAT_TIM_ERR:
-		printk("battery timer error..\n");
+		DBG("battery timer error..\n");
 		break;
 	default:
 		break;
@@ -2284,8 +2284,8 @@ static void rk817_bat_update_info(struct rk817_battery_device *battery)
 	battery->voltage_usb = rk817_bat_get_USB_voltage(battery);
 	battery->chrg_status = get_charge_status(battery);
 	rk817_bat_update_charging_status(battery);
-	printk("valtage usb: %d\n", battery->voltage_usb);
-	printk("UPDATE: voltage_avg = %d\n"
+	DBG("valtage usb: %d\n", battery->voltage_usb);
+	DBG("UPDATE: voltage_avg = %d\n"
 	    "voltage_sys = %d\n"
 	    "curren_avg = %d\n"
 	    "rsoc = %d\n"
