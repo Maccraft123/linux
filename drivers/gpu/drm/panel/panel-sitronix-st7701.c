@@ -16,6 +16,10 @@
 
 #include <video/mipi_display.h>
 
+/* Panel types for panel-specific init commands */
+#define PANEL_TS8550B 0
+#define PANEL_KD50T048A 1
+
 /* Command2 BKx selection command */
 #define DSI_CMD2BKX_SEL			0xFF
 
@@ -94,6 +98,8 @@ struct st7701_panel_desc {
 	const char *const *supply_names;
 	unsigned int num_supplies;
 	unsigned int panel_sleep_delay;
+	unsigned int reset_level;
+	unsigned int model;
 };
 
 struct st7701 {
@@ -147,9 +153,17 @@ static void st7701_init_sequence(struct st7701 *st7701)
 		   0x2C, 0x34, 0x1F);
 	ST7701_DSI(st7701, DSI_CMD2_BK0_LNESET,
 		   DSI_CMD2_BK0_LNESET_B0, DSI_CMD2_BK0_LNESET_B1);
-	ST7701_DSI(st7701, DSI_CMD2_BK0_PORCTRL,
-		   DSI_CMD2_BK0_PORCTRL_B0(mode),
-		   DSI_CMD2_BK0_PORCTRL_B1(mode));
+	switch (st7701->desc->model)
+	{
+		case PANEL_KD50T048A:
+			ST7701_DSI(st7701, DSI_CMD2_BK0_PORCTRL, 0x11, 0x02);
+			break;
+		default:
+			ST7701_DSI(st7701, DSI_CMD2_BK0_PORCTRL,
+					   DSI_CMD2_BK0_PORCTRL_B0(mode),
+					   DSI_CMD2_BK0_PORCTRL_B1(mode));
+			break;
+	}
 	ST7701_DSI(st7701, DSI_CMD2_BK0_INVSEL,
 		   DSI_CMD2_BK0_INVSEL_B0, DSI_CMD2_BK0_INVSEL_B1);
 
@@ -171,23 +185,47 @@ static void st7701_init_sequence(struct st7701 *st7701)
 	 * ST7701_SPEC_V1.2 is unable to provide enough information above this
 	 * specific command sequence, so grab the same from vendor BSP driver.
 	 */
-	ST7701_DSI(st7701, 0xE0, 0x00, 0x00, 0x02);
-	ST7701_DSI(st7701, 0xE1, 0x0B, 0x00, 0x0D, 0x00, 0x0C, 0x00, 0x0E,
-		   0x00, 0x00, 0x44, 0x44);
-	ST7701_DSI(st7701, 0xE2, 0x33, 0x33, 0x44, 0x44, 0x64, 0x00, 0x66,
-		   0x00, 0x65, 0x00, 0x67, 0x00, 0x00);
-	ST7701_DSI(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
-	ST7701_DSI(st7701, 0xE4, 0x44, 0x44);
-	ST7701_DSI(st7701, 0xE5, 0x0C, 0x78, 0x3C, 0xA0, 0x0E, 0x78, 0x3C,
-		   0xA0, 0x10, 0x78, 0x3C, 0xA0, 0x12, 0x78, 0x3C, 0xA0);
-	ST7701_DSI(st7701, 0xE6, 0x00, 0x00, 0x33, 0x33);
-	ST7701_DSI(st7701, 0xE7, 0x44, 0x44);
-	ST7701_DSI(st7701, 0xE8, 0x0D, 0x78, 0x3C, 0xA0, 0x0F, 0x78, 0x3C,
-		   0xA0, 0x11, 0x78, 0x3C, 0xA0, 0x13, 0x78, 0x3C, 0xA0);
-	ST7701_DSI(st7701, 0xEB, 0x02, 0x02, 0x39, 0x39, 0xEE, 0x44, 0x00);
-	ST7701_DSI(st7701, 0xEC, 0x00, 0x00);
-	ST7701_DSI(st7701, 0xED, 0xFF, 0xF1, 0x04, 0x56, 0x72, 0x3F, 0xFF,
-		   0xFF, 0xFF, 0xFF, 0xF3, 0x27, 0x65, 0x40, 0x1F, 0xFF);
+	switch (st7701->desc->model)
+	{
+		case PANEL_TS8550B:
+			ST7701_DSI(st7701, 0xE0, 0x00, 0x00, 0x02);
+			ST7701_DSI(st7701, 0xE1, 0x0B, 0x00, 0x0D, 0x00, 0x0C, 0x00, 0x0E,
+				   0x00, 0x00, 0x44, 0x44);
+			ST7701_DSI(st7701, 0xE2, 0x33, 0x33, 0x44, 0x44, 0x64, 0x00, 0x66,
+				   0x00, 0x65, 0x00, 0x67, 0x00, 0x00);
+			ST7701_DSI(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
+			ST7701_DSI(st7701, 0xE4, 0x44, 0x44);
+			ST7701_DSI(st7701, 0xE5, 0x0C, 0x78, 0x3C, 0xA0, 0x0E, 0x78, 0x3C,
+				   0xA0, 0x10, 0x78, 0x3C, 0xA0, 0x12, 0x78, 0x3C, 0xA0);
+			ST7701_DSI(st7701, 0xE6, 0x00, 0x00, 0x33, 0x33);
+			ST7701_DSI(st7701, 0xE7, 0x44, 0x44);
+			ST7701_DSI(st7701, 0xE8, 0x0D, 0x78, 0x3C, 0xA0, 0x0F, 0x78, 0x3C,
+				   0xA0, 0x11, 0x78, 0x3C, 0xA0, 0x13, 0x78, 0x3C, 0xA0);
+			ST7701_DSI(st7701, 0xEB, 0x02, 0x02, 0x39, 0x39, 0xEE, 0x44, 0x00);
+			ST7701_DSI(st7701, 0xEC, 0x00, 0x00);
+			ST7701_DSI(st7701, 0xED, 0xFF, 0xF1, 0x04, 0x56, 0x72, 0x3F, 0xFF,
+				   0xFF, 0xFF, 0xFF, 0xF3, 0x27, 0x65, 0x40, 0x1F, 0xFF);
+			break;
+		case PANEL_KD50T048A:
+			ST7701_DSI(st7701, 0xE0, 0x00, 0x00, 0x02);
+			ST7701_DSI(st7701, 0xE1, 0x08, 0x00, 0x0A, 0x00, 0x07, 0x00, 0x09,
+			             0x00, 0x00, 0x33, 0x33);
+			ST7701_DSI(st7701, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			             0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+			ST7701_DSI(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
+			ST7701_DSI(st7701, 0xE4, 0x44, 0x44);
+			ST7701_DSI(st7701, 0xE5, 0x0E, 0x60, 0xA0, 0xA0, 0x10, 0x60, 0xA0,
+			             0xA0, 0x0A, 0x60, 0xA0, 0xA0, 0x0C, 0x60, 0xA0, 0xA0);
+			ST7701_DSI(st7701, 0xE6, 0x00, 0x00, 0x33, 0x33);
+			ST7701_DSI(st7701, 0xE7, 0x44, 0x44);
+			ST7701_DSI(st7701, 0xE8, 0x0D, 0x60, 0xA0, 0xA0, 0x0F, 0x60, 0xA0,
+			             0xA0 ,0x09, 0x60, 0xA0, 0xA0, 0x0B, 0x60, 0xA0, 0xA0);
+			ST7701_DSI(st7701, 0xEB, 0x02, 0x01, 0xE4, 0xE4, 0x44, 0x00, 0x40);
+			ST7701_DSI(st7701, 0xEC, 0x02, 0x01);
+			ST7701_DSI(st7701, 0xED, 0xAB, 0x89, 0x76, 0x54, 0x01, 0xFF, 0xFF,
+				     0xFF ,0xFF, 0xFF, 0xFF, 0x10, 0x45, 0x67, 0x98, 0xBA);
+			break;
+	}
 
 	/* disable Command2 */
 	ST7701_DSI(st7701, DSI_CMD2BKX_SEL,
@@ -199,7 +237,7 @@ static int st7701_prepare(struct drm_panel *panel)
 	struct st7701 *st7701 = panel_to_st7701(panel);
 	int ret;
 
-	gpiod_set_value(st7701->reset, 0);
+	gpiod_set_value(st7701->reset, st7701->desc->reset_level);
 
 	ret = regulator_bulk_enable(st7701->desc->num_supplies,
 				    st7701->supplies);
@@ -207,7 +245,7 @@ static int st7701_prepare(struct drm_panel *panel)
 		return ret;
 	msleep(20);
 
-	gpiod_set_value(st7701->reset, 1);
+	gpiod_set_value(st7701->reset, !st7701->desc->reset_level);
 	msleep(150);
 
 	st7701_init_sequence(st7701);
@@ -323,6 +361,39 @@ static const struct st7701_panel_desc ts8550b_desc = {
 	.supply_names = ts8550b_supply_names,
 	.num_supplies = ARRAY_SIZE(ts8550b_supply_names),
 	.panel_sleep_delay = 80, /* panel need extra 80ms for sleep out cmd */
+	.reset_level = 0,
+	.model = PANEL_TS8550B,
+};
+
+static const struct drm_display_mode kd50t048a_mode = {
+	.clock          = 27500,
+
+	.hdisplay       = 480,
+	.hsync_start    = 480 + 2,
+	.hsync_end      = 480 + 2 + 10,
+	.htotal         = 480 + 2 + 10 + 2,
+
+	.vdisplay       = 854,
+	.vsync_start    = 854 + 12,
+	.vsync_end      = 854 + 12 + 2,
+	.vtotal         = 854 + 12 + 2 + 60,
+
+	.width_mm       = 69,
+	.height_mm      = 139,
+
+	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
+};
+
+static const struct st7701_panel_desc kd50t048a_desc = {
+	.mode = &kd50t048a_mode,
+	.lanes = 2,
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST,
+	.format = MIPI_DSI_FMT_RGB888,
+	.supply_names = ts8550b_supply_names, /* they are the same */
+	.num_supplies = ARRAY_SIZE(ts8550b_supply_names),
+	.panel_sleep_delay = 80, /* panel need extra 80ms for sleep out cmd */
+	.reset_level = 1,
+	.model = PANEL_KD50T048A,
 };
 
 static int st7701_dsi_probe(struct mipi_dsi_device *dsi)
@@ -399,6 +470,7 @@ static int st7701_dsi_remove(struct mipi_dsi_device *dsi)
 
 static const struct of_device_id st7701_of_match[] = {
 	{ .compatible = "techstar,ts8550b", .data = &ts8550b_desc },
+	{ .compatible = "elida,kd50t048a", .data = &kd50t048a_desc },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, st7701_of_match);
