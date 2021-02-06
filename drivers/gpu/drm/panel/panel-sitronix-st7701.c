@@ -246,8 +246,7 @@ static void kd50t048a_init_sequence(struct st7701 *st7701)
         ST7701_DSI(st7701, 0xE0, 0x00, 0x00, 0x02);
         ST7701_DSI(st7701, 0xE1, 0x08, 0x00, 0x0A, 0x00, 0x07, 0x00, 0x09,
                      0x00, 0x00, 0x33, 0x33);
-        ST7701_DSI(st7701, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+        ST7701_DSI(st7701, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
         ST7701_DSI(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
         ST7701_DSI(st7701, 0xE4, 0x44, 0x44);
         ST7701_DSI(st7701, 0xE5, 0x0E, 0x60, 0xA0, 0xA0, 0x10, 0x60, 0xA0,
@@ -263,6 +262,12 @@ static void kd50t048a_init_sequence(struct st7701 *st7701)
 	/* disable Command2 */
 	ST7701_DSI(st7701, DSI_CMD2BKX_SEL,
 		   0x77, 0x01, 0x00, 0x00, DSI_CMD2BKX_SEL_NONE);
+	ST7701_DSI(st7701, 0x3A, 0x70);
+	ST7701_DSI(st7701, 0x53, 0xEC);
+	ST7701_DSI(st7701, 0x55, 0xB3);
+	ST7701_DSI(st7701, 0x5E, 0xFF);
+	ST7701_DSI(st7701, 0x29);
+	msleep(50);
 }
 
 static int st7701_prepare(struct drm_panel *panel)
@@ -429,10 +434,10 @@ static const struct st7701_panel_desc kd50t048a_desc = {
 	.mode = &kd50t048a_mode,
 	.lanes = 2,
 	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST | MIPI_DSI_MODE_EOT_PACKET,
-	.format = MIPI_DSI_FMT_RGB666_PACKED,
+	.format = MIPI_DSI_FMT_RGB888,
 	.supply_names = ts8550b_supply_names, /* they are the same */
 	.num_supplies = ARRAY_SIZE(ts8550b_supply_names),
-	.panel_sleep_delay = 80, /* panel need extra 80ms for sleep out cmd */
+	.panel_sleep_delay = 250, /* panel need extra 250ms for sleep out cmd */
 	.reset_level = 1,
 	.model = PANEL_KD50T048A,
 };
