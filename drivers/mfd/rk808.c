@@ -72,7 +72,7 @@ static bool rk817_is_volatile_reg(struct device *dev, unsigned int reg)
 		return true;
 	}
 
-	return true; // ???
+	return false;
 }
 
 static const struct regmap_config rk818_regmap_config = {
@@ -103,7 +103,8 @@ static const struct regmap_config rk817_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = RK817_GPIO_INT_CFG,
-	.cache_type = REGCACHE_NONE,
+	.num_reg_defaults_raw = RK817_GPIO_INT_CFG + 1,
+	.cache_type = REGCACHE_RBTREE,
 	.volatile_reg = rk817_is_volatile_reg,
 };
 
@@ -205,12 +206,12 @@ static const struct rk808_reg_data rk808_pre_init_reg[] = {
 						    VB_LO_SEL_3500MV },
 };
 
-static const struct rk808_reg_data rk817_pre_init_reg[] = {
-	{RK817_RTC_CTRL_REG, RTC_STOP, RTC_STOP},
-	{RK817_GPIO_INT_CFG, RK817_INT_POL_MSK, RK817_INT_POL_L},
-	{RK817_SYS_CFG(1), RK817_HOTDIE_TEMP_MSK | RK817_TSD_TEMP_MSK,
-					   RK817_HOTDIE_105 | RK817_TSD_140},
-};
+//static const struct rk808_reg_data rk817_pre_init_reg[] = {
+//	{RK817_RTC_CTRL_REG, RTC_STOP, RTC_STOP},
+//	{RK817_GPIO_INT_CFG, RK817_INT_POL_MSK, RK817_INT_POL_L},
+//	{RK817_SYS_CFG(1), RK817_HOTDIE_TEMP_MSK | RK817_TSD_TEMP_MSK,
+//					   RK817_HOTDIE_105 | RK817_TSD_140},
+//};
 
 static const struct rk808_reg_data rk818_pre_init_reg[] = {
 	/* improve efficiency */
@@ -228,6 +229,14 @@ static const struct rk808_reg_data rk818_pre_init_reg[] = {
 	{ RK818_H5V_EN_REG,	  BIT(0),	    RK818_H5V_EN },
 	{ RK808_VB_MON_REG,	  MASK_ALL,	    VB_LO_ACT |
 						    VB_LO_SEL_3500MV },
+};
+
+static const struct rk808_reg_data rk817_pre_init_reg[] = {
+        {RK817_SYS_CFG(3), RK817_SLPPOL_MSK, RK817_SLPPOL_L},
+        {RK817_RTC_CTRL_REG, RTC_STOP, RTC_STOP},
+        {RK817_GPIO_INT_CFG, RK817_INT_POL_MSK, RK817_INT_POL_L},
+        {RK817_SYS_CFG(1), RK817_HOTDIE_TEMP_MSK | RK817_TSD_TEMP_MSK,
+                                           RK817_HOTDIE_105 | RK817_TSD_140},
 };
 
 static const struct regmap_irq rk805_irqs[] = {
