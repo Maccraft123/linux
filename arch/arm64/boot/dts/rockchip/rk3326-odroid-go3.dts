@@ -18,11 +18,33 @@
 		stdout-path = "serial2:115200n8";
 	};
 
-/*			! needs a adc-mux driver !
+	mux: mux-controller {
+		status = "okay";
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>,
+			    <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+		mux-en-gpio = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+	};
+
+	adcmux: adc-mux {
+		status = "okay";
+		compatible = "io-channel-mux";
+		io-channels = <&saradc 1>;
+		io-channel-names = "parent";
+		#io-channel-cells = <1>;
+
+		mux-controls = <&mux>;
+
+		channels = "stick1x", "stick1y", "stick2x", "stick2y";
+	};
+
 	adc-joystick {
+		status = "okay";
 		compatible = "adc-joystick";
-		io-channels = <&saradc 1>,
-			      <&saradc 2>;
+		io-channels = <&adcmux 1>,
+			      <&adcmux 2>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -41,7 +63,7 @@
 			abs-range = <278 815>;
 			linux,code = <ABS_Y>;
 		};
-	};*/
+	};
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
@@ -199,6 +221,7 @@
 	};
 
         rk817-sound {
+		status = "okay";
                 compatible = "simple-audio-card";
                 simple-audio-card,format = "i2s";
                 simple-audio-card,name = "rockchip,rk817-codec";
@@ -335,8 +358,8 @@
                         ocv_table = <3500 3625 3685 3697 3718 3735 3748
                         3760 3774 3788 3802 3816 3834 3853
                         3877 3908 3946 3975 4018 4071 4106>;
-                        design_capacity = <3000>;
-                        design_qmax = <3000>;
+                        design_capacity = <4000>;
+                        design_qmax = <4020>;
                         bat_res = <180>;
                         sleep_enter_current = <300>;
                         sleep_exit_current = <300>;
@@ -634,17 +657,10 @@
                                         <2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
                                         <2 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>,
 
-                                        //<3 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
+                                        <3 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
                                         <3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>,
-                                        //<3 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
+                                        <3 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
                                         <3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>;
-		};
-	};
-
-	keys {
-		key_pins: key-pins {
-			rockchip,pins = <3 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
-					<3 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
