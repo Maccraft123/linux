@@ -599,6 +599,26 @@
 		status = "disabled";
 	};
 
+	spi2 {
+	        compatible = "spi-gpio";
+	        sck-gpios = <&gpio1 RK_PB1 0>;
+	        miso-gpios = <&gpio1 RK_PA1 0>;
+	        mosi-gpios = <&gpio1 RK_PA0 0>;
+	        cs-gpios = <&gpio1 RK_PA4 0>;
+	        num-chipselects = <1>;
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+		status = "okay";
+
+	        spidev1@0 {
+	                compatible = "spidev";
+	                spi-max-frequency = <500000>;
+	                reg = <0>;
+	                #address-cells = <1>;
+	                #size-cells = <0>;
+	        };
+	};
+
 	wdt: watchdog@ff1e0000 {
 		compatible = "snps,dw-wdt";
 		reg = <0x0 0xff1e0000 0x0 0x100>;
