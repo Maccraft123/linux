@@ -71,11 +71,10 @@
 		pwms = <&pwm1 0 25000 0>;
 	};
 
-        volume {
+        utils {
                         compatible = "gpio-keys";
                         #address-cells = <1>;
                         #size-cells = <0>;
-                        autorepeat;
                         button@0 {
                                 label = "GPIO BTN-VOLUP";
                                 linux,code = <KEY_VOLUMEUP>;
@@ -86,6 +85,11 @@
                                 linux,code = <KEY_VOLUMEDOWN>;
                                 gpios = <&gpio2 RK_PA1 GPIO_ACTIVE_LOW>;
                         };
+			button@2 {
+				label = "Mod button";
+				gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
+				linux,code = <KEY_LEFTMETA>; // 0x2c2
+			};
         };
 
 	joypad {
@@ -98,13 +102,13 @@
 		 * |------------------------------------------------|
 		 * | L1 L2             vol-  vol+             R2 R1 |
 		 * |------------------------------------------------|
-		 * |       bright- (brightness other)    bright+    |
+		 * |       select                          start    |
 		 * |     sw1      |-------------------|      sw8    |
 		 * |  sw3   sw4   |                   |   sw7   sw5 |
 		 * |     sw2      |    LCD Display    |      sw6    |
 		 * |              |                   |             |
 		 * |              |-------------------|             |
-		 * |  sel start         SD  SLOT         sw13 sw14  |
+		 * |  MOD start         SD  SLOT         sw13 sw14  |
 		 * |------------------------------------------------|
 		 */
 
@@ -130,12 +134,12 @@
                 };
                 sw5 {
                         gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;
-                        label = "GPIO KEY BTN-A";
+                        label = "GPIO BTN-A";
                         linux,code = <BTN_EAST>; // 0x131
                 };
                 sw6 {
                         gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>;
-                        label = "GPIO BTN-B";
+                        label = "GPIO BTN-A";
                         linux,code = <BTN_SOUTH>; // 0x130
                 };
                 sw7 {
@@ -147,11 +151,6 @@
                         gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
                         label = "GPIO BTN-X";
                         linux,code = <BTN_NORTH>; // 0x133
-                };
-                sw11 {
-                        gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
-                        label = "GPIO F3";
-                        linux,code = <BTN_TRIGGER_HAPPY3>; // 0x2c2
                 };
                 sw12 {
                         gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
