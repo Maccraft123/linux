@@ -166,7 +166,7 @@ static const struct mfd_cell rk817s[] = {
 	{ .name = "rk817-battery", .of_compatible = "rk817,battery", },
 	{ .name = "rk817-charger", .of_compatible = "rk817,charger", },
 	{
-		.name = "rk805-pwrkey",
+		.name = "rk8xx-pwrkey",
 		.num_resources = ARRAY_SIZE(rk817_pwrkey_resources),
 		.resources = &rk817_pwrkey_resources[0],
 	},
