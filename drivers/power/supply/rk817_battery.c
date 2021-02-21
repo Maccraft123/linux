@@ -1927,17 +1927,21 @@ static int rk817_bat_parse_dt(struct rk817_battery_device *battery)
 }
 
 static enum power_supply_property rk817_bat_props[] = {
-	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
 static int rk817_bat_get_usb_psy(struct device *dev, void *data)
@@ -2055,41 +2059,64 @@ static int rk817_battery_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = battery->current_avg * 1000;/*uA*/
-		if (battery->pdata->bat_mode == MODE_VIRTUAL)
-			val->intval = VIRTUAL_CURRENT * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery->voltage_sys * 1000;/*uV*/
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		val->intval = battery->voltage_avg * 1000;/*uV*/
-		if (battery->pdata->bat_mode == MODE_VIRTUAL)
-			val->intval = VIRTUAL_VOLTAGE * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = (battery->dsoc  + 500) / 1000;
-		if (battery->pdata->bat_mode == MODE_VIRTUAL)
-			val->intval = VIRTUAL_SOC;
+		val->intval = battery->rsoc / 1000;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = rk817_get_capacity_leve(battery);
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
+		if(battery->voltage_sys < 3000)
+		{
+			val->intval = POWER_SUPPLY_HEALTH_DEAD; // TODO: set this in dts
+			break;
+		}
+		if(battery->voltage_sys > 4300)
+		{
+			val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+			break;
+		}
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		break;
+	case POWER_SUPPLY_PROP_TECHNOLOGY:
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = battery->temperature;
-		if (battery->pdata->bat_mode == MODE_VIRTUAL)
-			val->intval = VIRTUAL_TEMPERATURE;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		switch(rk817_bat_field_read(battery, CHG_STS)) {
+		case CHRG_OFF: /* fall-through */
+		case DEAD_CHRG:
+			val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE;
+			break;
+		case TRICKLE_CHRG:
+			val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
+			break;
+		case CC_OR_CV_CHRG:
+			val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST;
+			break;
+		default:
+			val->intval = POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
+			break;
+		}
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
-		; // why is this cursed thing needed? WHY
-		int status = rk817_bat_field_read(battery, CHG_STS);
-		switch (status) {
+		switch (rk817_bat_field_read(battery, CHG_STS)) {
 		case CHRG_OFF:
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 			break;
 		case DEAD_CHRG:
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
-		case TRICKLE_CHRG:
+		case TRICKLE_CHRG: /* fall-through */
 		case CC_OR_CV_CHRG:
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 			break;
@@ -2116,6 +2143,9 @@ static int rk817_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = 5000 * 1000;
 		break;
+	// hardware can do this, but unused:
+	// time_to_empty
+	
 	default:
 		return -EINVAL;
 	}
@@ -2287,14 +2317,14 @@ static void rk817_bat_update_info(struct rk817_battery_device *battery)
 	DBG("valtage usb: %d\n", battery->voltage_usb);
 	DBG("UPDATE: voltage_avg = %d\n"
 	    "voltage_sys = %d\n"
-	    "curren_avg = %d\n"
+	    "dsoc = %d\n"
 	    "rsoc = %d\n"
 	    "chrg_status = %d\n"
 	    "PWRON_CUR = %d\n"
 	    "remain_cap = %d\n",
 	    battery->voltage_avg,
 	    battery->voltage_sys,
-	    battery->current_avg,
+	    battery->dsoc,
 	    battery->rsoc,
 	    battery->chrg_status,
 	    rk817_bat_get_pwron_current(battery),
