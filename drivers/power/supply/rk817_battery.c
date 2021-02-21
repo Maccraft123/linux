@@ -1672,10 +1672,10 @@ static void rk817_bat_rsoc_init(struct rk817_battery_device *battery)
 	    __func__, battery->is_first_power_on,
 	    battery->pwroff_min, battery->pwron_voltage);
 
-	if (battery->is_first_power_on)
+	//if (battery->is_first_power_on)
 		rk817_bat_first_pwron(battery);
-	else
-		rk817_bat_not_first_pwron(battery);
+	//else
+	//	rk817_bat_not_first_pwron(battery);
 
 	 rk817_bat_save_dsoc(battery, battery->dsoc);
 }
