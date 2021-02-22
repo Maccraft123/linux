@@ -603,7 +603,8 @@ void rockchip_clk_protect_critical(const char *const clocks[],
 	for (i = 0; i < nclocks; i++) {
 		struct clk *clk = __clk_lookup(clocks[i]);
 
-		clk_prepare_enable(clk);
+		if (clk)
+			clk_prepare_enable(clk);
 	}
 }
 EXPORT_SYMBOL_GPL(rockchip_clk_protect_critical);
