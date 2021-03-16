@@ -65,11 +65,11 @@
 				gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
 				linux,code = <KEY_LEFTMETA>; // 0x2c2
 			};
-			button@3 {
-				label = "HP detection";
-				gpios = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
-				linux,code = <KEY_SOUND>;
-			};
+			//button@3 {
+			//	label = "HP detection";
+			//	gpios = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+			//	linux,code = <KEY_SOUND>;
+			//};
         };
 
 	joypad {
@@ -263,13 +263,15 @@
                 simple-audio-card,mclk-fs = <256>;
                 simple-audio-card,widgets =
                         "Microphone", "Mic Jack",
-                        "Headphones", "Headphone Jack";
+                        "Headphone", "Headphones",
+			"Speaker", "Speaker";
                 simple-audio-card,routing =
-                        "MIC_IN", "Mic Jack",
-                        "Headphone Jack", "HPOL",
-                        "Headphone Jack", "HPOR";
-                //simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
-                //simple-audio-card,codec-hp-det = <1>;
+                        "MICL", "Mic Jack",
+                        "Headphones", "HPOL",
+                        "Headphones", "HPOR",
+			"Speaker", "SPKO";
+                simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+                simple-audio-card,pin-switches = "Speaker", "Headphones";
                 simple-audio-card,cpu {
                         sound-dai = <&i2s1_2ch>;
                 };
@@ -431,8 +433,7 @@
                         clock-names = "mclk";
                         pinctrl-names = "default";
                         pinctrl-0 = <&i2s1_2ch_mclk>;
-                        hp-volume = <20>;
-                        spk-volume = <3>;
+			mic-in-differential;
                         status = "okay";
 		};
 
