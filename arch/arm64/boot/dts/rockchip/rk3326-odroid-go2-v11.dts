@@ -238,13 +238,15 @@
                 simple-audio-card,mclk-fs = <256>;
                 simple-audio-card,widgets =
                         "Microphone", "Mic Jack",
-                        "Headphones", "Headphone Jack";
+                        "Headphone", "Headphones",
+			"Speaker", "Speaker";
                 simple-audio-card,routing =
-                        "MIC_IN", "Mic Jack",
-                        "Headphone Jack", "HPOL",
-                        "Headphone Jack", "HPOR";
-                //simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
-                //simple-audio-card,codec-hp-det = <1>;
+                        "MICL", "Mic Jack",
+                        "Headphones", "HPOL",
+                        "Headphones", "HPOR",
+			"Speaker", "SPKO";
+                simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+		simple-audio-card,pin-switches = "Speaker","Headphones";
                 simple-audio-card,cpu {
                         sound-dai = <&i2s1_2ch>;
                 };
@@ -409,6 +411,7 @@
                         hp-volume = <20>;
                         spk-volume = <3>;
                         status = "okay";
+			mic-in-differential;
                 };
 
 		regulators {

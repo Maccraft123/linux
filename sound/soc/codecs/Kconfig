@@ -1046,7 +1046,7 @@ config SND_SOC_RK3328
 	select REGMAP_MMIO
 
 config SND_SOC_RK817
-	tristate "RK817 CODEC"
+	tristate "Rockchip RK817 audio CODEC"
 	depends on MFD_RK808
 	select REGMAP_I2C
 

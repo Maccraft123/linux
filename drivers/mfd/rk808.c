@@ -158,6 +158,12 @@ static const struct mfd_cell rk808s[] = {
 		.num_resources = ARRAY_SIZE(rtc_resources),
 		.resources = rtc_resources,
 	},
+#ifdef CONFIG_SND_SOC_RK817
+	{
+		.name = "rk817-codec",
+		.of_compatible = "rockchip,rk817-codec",
+	},
+#endif
 };
 
 static const struct mfd_cell rk817s[] = {
