@@ -220,7 +220,7 @@ static void gpio_keys_polled_set_abs_params(struct input_dev *input,
 }
 
 static const struct of_device_id gpio_keys_polled_of_match[] = {
-	{ .compatible = "gpio-keys-polled", },
+	{ .compatible = "gpio-keys-adc", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, gpio_keys_polled_of_match);

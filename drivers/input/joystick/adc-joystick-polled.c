@@ -5,6 +5,9 @@
 #include <linux/ioport.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/gpio_keys.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/consumer.h>
 #include <linux/iio/driver.h>
@@ -14,6 +17,9 @@ struct adc_joystick_polled_axis {
 	s32 range[2];
 	s32 fuzz;
 	s32 flat;
+	int prev_val;
+	int is_analog;
+	struct gpio_desc *gpiod;
 };
 
 struct adc_joystick_polled {
@@ -39,16 +45,25 @@ static int adc_joystick_set_axes(struct device *dev, struct adc_joystick_polled 
 
 		fwnode_property_read_u32(child, "linux,code", &axes[i].code);
 
-		fwnode_property_read_u32_array(child, "abs-range", axes[i].range, 2);
+		if (fwnode_property_present(child, "analog"))
+		{
+			axes[i].is_analog = 1;
 
-		fwnode_property_read_u32(child, "abs-fuzz", &axes[i].fuzz);
+			fwnode_property_read_u32_array(child, "abs-range", axes[i].range, 2);
+			fwnode_property_read_u32(child, "abs-fuzz", &axes[i].fuzz);
+			fwnode_property_read_u32(child, "abs-flat", &axes[i].flat);
+			input_set_abs_params(joy->input, axes[i].code,
+					axes[i].range[0], axes[i].range[1],
+					axes[i].fuzz, axes[i].flat);
+			input_set_capability(joy->input, EV_ABS, axes[i].code);
+		}
+		else
+		{
+			axes[i].is_analog = 0;
+			axes[i].gpiod = devm_fwnode_gpiod_get(dev, child, NULL, GPIOD_IN, "btn");
+			input_set_capability(joy->input, EV_KEY, axes[i].code);
+		}
 
-		fwnode_property_read_u32(child, "abs-flat", &axes[i].flat);
-
-		input_set_abs_params(joy->input, axes[i].code,
-				axes[i].range[0], axes[i].range[1],
-				axes[i].fuzz, axes[i].flat);
-		input_set_capability(joy->input, EV_ABS, axes[i].code);
 	}
 
 	joy->axes = axes;
@@ -64,8 +79,24 @@ static void adc_joystick_polled_poll(struct input_dev *input)
 	int raw;
 
 	for (i = 0; i < bdev->num_chans; i++) {
-		iio_read_channel_raw(&bdev->chans[i], &raw);
-		input_event(input, EV_ABS, bdev->axes[i].code, raw);
+		if (bdev->axes[i].is_analog == 1)
+		{
+			iio_read_channel_raw(&bdev->chans[i], &raw);
+			if (raw - 15 > bdev->axes[i].prev_val || raw + 15 < bdev->axes[i].prev_val)
+			{
+				input_event(input, EV_ABS, bdev->axes[i].code, raw);
+				bdev->axes[i].prev_val = raw;
+			}
+		}
+		else
+		{
+			raw = gpiod_get_value_cansleep(bdev->axes[i].gpiod);
+			if (raw != bdev->axes[i].prev_val)
+			{
+				input_event(input, EV_KEY, bdev->axes[i].code, raw);
+				bdev->axes[i].prev_val = raw;
+			}
+		}
 	}
 
 	input_sync(input);
@@ -76,6 +107,7 @@ static int adc_joystick_polled_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct adc_joystick_polled *joy;
 	struct input_dev *input;
+	const struct gpio_keys_platform_data *pdata = dev_get_platdata(dev);
 	int err;
 
 	joy = devm_kzalloc(dev, sizeof(*joy), GFP_KERNEL);
@@ -98,8 +130,6 @@ static int adc_joystick_polled_probe(struct platform_device *pdev)
 
 	input->name = pdev->name;
 	input->id.bustype = BUS_HOST;
-	//input->open = adc_joystick_polled_open;
-	//input->close = adc_joystick_polled_close;
 
 	input_setup_polling(input, adc_joystick_polled_poll);
 	input_set_poll_interval(input, 10);
@@ -115,7 +145,7 @@ static int adc_joystick_polled_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id adc_joystick_polled_of_match[] = {
-	{ .compatible = "adc-joystick-polled", },
+	{ .compatible = "gpio-keys-adc", },
 	{ }
 };
 

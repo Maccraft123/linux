@@ -15,6 +15,12 @@ menuconfig INPUT_JOYSTICK
 
 if INPUT_JOYSTICK
 
+config JOYSTICK_ODROIDGO2
+	tristate "go2"
+
+config JOYSTICK_ODROIDGO3
+	tristate "go3"
+
 config JOYSTICK_ANALOG
 	tristate "Classic PC analog joysticks and gamepads"
 	select GAMEPORT

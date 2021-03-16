@@ -37,32 +37,7 @@
 
 		mux-controls = <&mux>;
 
-		channels = "stick1x", "stick1y", "stick2x", "stick2y";
-	};
-
-	adc-joystick {
-		status = "okay";
-		compatible = "adc-joystick";
-		io-channels = <&adcmux 1>,
-			      <&adcmux 2>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		axis@0 {
-			reg = <0>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <172 772>;
-			linux,code = <ABS_X>;
-		};
-
-		axis@1 {
-			reg = <1>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <278 815>;
-			linux,code = <ABS_Y>;
-		};
+		channels = "0", "1", "2", "3";
 	};
 
 	backlight: backlight {
@@ -98,9 +73,48 @@
         };
 
 	joypad {
-		compatible = "gpio-keys";
+		compatible = "gpio-keys-adc";
 		pinctrl-names = "default";
 		pinctrl-0 = <&btn_pins>;
+
+		io-channels = <&adcmux 0>, <&adcmux 1>, <&adcmux 2>, <&adcmux 3>;
+
+		axis@0 {
+		        reg = <0>;
+		        abs-flat = <32>;
+		        abs-fuzz = <10>;
+		        abs-range = <180 800>;
+		        linux,code = <ABS_X>;
+			analog;
+		};
+
+		axis@1 {
+		        reg = <1>;
+		        abs-flat = <32>;
+		        abs-fuzz = <10>;
+		        abs-range = <180 800>;
+		        linux,code = <ABS_RX>;
+			analog;
+		};
+
+		axis@2 {
+			reg = <2>;
+			abs-flat = <32>;
+			abs-fuss = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_Y>;
+			analog;
+		};
+
+		axis@3 {
+			reg = <3>;
+			abs-flat = <32>;
+			abs-fuss = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_RY>;
+			analog;
+		};
+
 
 		/*
 		 *      *** ODROIDGO3 Switch layout ***
@@ -118,86 +132,103 @@
 		 */
 
                 sw1 {
+			reg = <4>;
                         gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>;
                         label = "GPIO DPAD-UP";
                         linux,code = <BTN_DPAD_UP>; // 0x220
                 };
                 sw2 {
+			reg = <5>;
                         gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_LOW>;
                         label = "GPIO DPAD-DOWN";
                         linux,code = <BTN_DPAD_DOWN>; // 0x221
                 };
                 sw3 {
+			reg = <6>;
                         gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>;
                         label = "GPIO DPAD-LEFT";
                         linux,code = <BTN_DPAD_LEFT>; // 0x222
                 };
                 sw4 {
+			reg = <7>;
                         gpios = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>;
                         label = "GPIO DPAD-RIGHT";
                         linux,code = <BTN_DPAD_RIGHT>; // 0x223
                 };
                 sw5 {
+			reg = <8>;
                         gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;
                         label = "GPIO BTN-A";
                         linux,code = <BTN_EAST>; // 0x131
                 };
                 sw6 {
+			reg = <9>;
                         gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>;
                         label = "GPIO BTN-A";
                         linux,code = <BTN_SOUTH>; // 0x130
                 };
                 sw7 {
+			reg = <10>;
                         gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
                         label = "GPIO BTN-Y";
                         linux,code = <BTN_WEST>; // 0x134
                 };
                 sw8 {
+			reg = <11>;
                         gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
                         label = "GPIO BTN-X";
                         linux,code = <BTN_NORTH>; // 0x133
                 };
                 sw9 {
+			reg = <12>;
                         gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
                         label = "GPIO F4";
                         linux,code = <BTN_THUMBL>; // 0x2c3
                 };
                 sw10 {
+			reg = <13>;
                         gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_LOW>;
                         label = "GPIO F5";
                         linux,code = <BTN_THUMBR>; // 0x2c4
                 };
                 sw11 { // UNUSED
+			reg = <14>;
                         gpios = <&gpio2 RK_PA5 GPIO_ACTIVE_LOW>;
                         label = "GPIO F6";
                         linux,code = <BTN_TRIGGER_HAPPY6>; // 0x13c
                 };
                 sw12 {
+			reg = <15>;
                         gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>;
                         label = "GPIO TOP-LEFT";
                         linux,code = <BTN_TL>; // 0x02
                 };
                 sw13 {
+			reg = <16>;
                         gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>;
                         label = "GPIO TOP-RIGHT";
                         linux,code = <BTN_TR>; // 0x05
                 };
                 sw14 {
+			reg = <17>;
                         gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
                         label = "GPIO SELECT";
                         linux,code = <BTN_SELECT>;
                 };
                 sw15 {
+			reg = <18>;
                         gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
                         label = "GPIO F2";
                         linux,code = <BTN_START>;
                 };
                 sw16 {
+			reg = <19>;
                         gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
                         label = "GPIO TOP-RIGHT2";
                         linux,code = <BTN_TR2>;
                 };
                 sw17 {
+			reg = <20>;
                         gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
                         label = "GPIO TOP-LEFT2";
                         linux,code = <BTN_TL2>;
