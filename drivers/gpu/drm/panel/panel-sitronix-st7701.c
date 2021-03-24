@@ -16,10 +16,6 @@
 
 #include <video/mipi_display.h>
 
-/* Panel types for panel-specific init commands */
-#define PANEL_TS8550B 0
-#define PANEL_KD50T048A 1
-
 /* Command2 BKx selection command */
 #define DSI_CMD2BKX_SEL			0xFF
 
@@ -90,6 +86,9 @@
 #define DSI_MIPISET1_EOT_EN		BIT(3)
 #define DSI_CMD2_BK1_MIPISET1_SET	(BIT(7) | DSI_MIPISET1_EOT_EN)
 
+/* Circular dependency between struct st7701_panel_desc and struct st7701 definitions */
+struct st7701;
+
 struct st7701_panel_desc {
 	const struct drm_display_mode *mode;
 	unsigned int lanes;
@@ -99,7 +98,7 @@ struct st7701_panel_desc {
 	unsigned int num_supplies;
 	unsigned int panel_sleep_delay;
 	unsigned int reset_level;
-	unsigned int model;
+	void (*init_function)(struct st7701 *);
 };
 
 struct st7701 {
@@ -192,7 +191,7 @@ static void ts8550b_init_sequence(struct st7701 *st7701)
 		   0xA0, 0x11, 0x78, 0x3C, 0xA0, 0x13, 0x78, 0x3C, 0xA0);
 	ST7701_DSI(st7701, 0xEB, 0x02, 0x02, 0x39, 0x39, 0xEE, 0x44, 0x00);
 	ST7701_DSI(st7701, 0xEC, 0x00, 0x00);
-	ST7701_DSI(st7701, 0xED, 0xFF, 0xF1, 0x04, 0x56, 0x72, 0x3F, 0xFF,
+	ST7701_DSI(st7701, 0xEC, 0xFF, 0xF1, 0x04, 0x56, 0x72, 0x3F, 0xFF,
 		   0xFF, 0xFF, 0xFF, 0xF3, 0x27, 0x65, 0x40, 0x1F, 0xFF);
 	/* disable Command2 */
 	ST7701_DSI(st7701, DSI_CMD2BKX_SEL,
@@ -201,8 +200,6 @@ static void ts8550b_init_sequence(struct st7701 *st7701)
 
 static void kd50t048a_init_sequence(struct st7701 *st7701)
 {
-	const struct drm_display_mode *mode = st7701->desc->mode;
-
 	ST7701_DSI(st7701, MIPI_DCS_SOFT_RESET, 0x00);
 
 	/* We need to wait 5ms before sending new commands */
@@ -286,15 +283,7 @@ static int st7701_prepare(struct drm_panel *panel)
 	gpiod_set_value(st7701->reset, !st7701->desc->reset_level);
 	msleep(150);
 
-	switch (st7701->desc->model)
-	{
-	case PANEL_TS8550B:
-		ts8550b_init_sequence(st7701);
-		break;
-	case PANEL_KD50T048A:
-		kd50t048a_init_sequence(st7701);
-		break;
-	}
+	st7701->desc->init_function(st7701);
 
 	return 0;
 }
@@ -408,7 +397,7 @@ static const struct st7701_panel_desc ts8550b_desc = {
 	.num_supplies = ARRAY_SIZE(ts8550b_supply_names),
 	.panel_sleep_delay = 80, /* panel need extra 80ms for sleep out cmd */
 	.reset_level = 0,
-	.model = PANEL_TS8550B,
+	.init_function = ts8550b_init_sequence,
 };
 
 static const struct drm_display_mode kd50t048a_mode = {
@@ -430,16 +419,20 @@ static const struct drm_display_mode kd50t048a_mode = {
 	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
 };
 
+static const char * const kd50t048a_supply_names[] = {
+	"VCC",
+};
+
 static const struct st7701_panel_desc kd50t048a_desc = {
 	.mode = &kd50t048a_mode,
 	.lanes = 2,
 	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST | MIPI_DSI_MODE_EOT_PACKET,
 	.format = MIPI_DSI_FMT_RGB888,
-	.supply_names = ts8550b_supply_names, /* they are the same */
-	.num_supplies = ARRAY_SIZE(ts8550b_supply_names),
+	.supply_names = kd50t048a_supply_names,
+	.num_supplies = ARRAY_SIZE(kd50t048a_supply_names),
 	.panel_sleep_delay = 250, /* panel need extra 250ms for sleep out cmd */
 	.reset_level = 1,
-	.model = PANEL_KD50T048A,
+	.init_function = kd50t048a_init_sequence,
 };
 
 static int st7701_dsi_probe(struct mipi_dsi_device *dsi)
