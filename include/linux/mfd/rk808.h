@@ -495,6 +495,19 @@ enum rk809_reg_id {
 #define RK817_CODEC_DI2S_TXCR2		0x4e
 #define RK817_CODEC_DI2S_TXCR3_TXCMD	0x4f
 
+enum rk817_bat_fields {
+	CHG_STS = 0,
+	BAT_VOL_H,
+	BAT_VOL_L,
+};
+
+static const struct reg_field rk817_bat_reg_fields[] = {
+	[CHG_STS] = REG_FIELD(0xEB, 4, 6),
+
+	[BAT_VOL_H] = REG_FIELD(0x78, 0, 7),
+	[BAT_VOL_L] = REG_FIELD(0x79, 0, 7),
+};
+
 /* RK817_CODEC_DI2S_CKM */
 #define RK817_I2S_MODE_MASK		(0x1 << 0)
 #define RK817_I2S_MODE_MST		(0x1 << 0)
