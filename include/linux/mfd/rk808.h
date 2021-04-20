@@ -497,15 +497,39 @@ enum rk809_reg_id {
 
 enum rk817_bat_fields {
 	CHG_STS = 0,
+	Q_PRES_H3,
+	Q_PRES_H2,
+	Q_PRES_L1,
+	Q_PRES_L0,
 	BAT_VOL_H,
 	BAT_VOL_L,
+	SYS_VOL_H,
+	SYS_VOL_L,
+	VCALIB0_H,
+	VCALIB0_L,
+	VCALIB1_H,
+	VCALIB1_L,
 };
 
 static const struct reg_field rk817_bat_reg_fields[] = {
 	[CHG_STS] = REG_FIELD(0xEB, 4, 6),
 
+	[Q_PRES_H3] = REG_FIELD(0x74, 0, 7),
+	[Q_PRES_H2] = REG_FIELD(0x75, 0, 7),
+	[Q_PRES_L1] = REG_FIELD(0x76, 0, 7),
+	[Q_PRES_L0] = REG_FIELD(0x77, 0, 7),
+
 	[BAT_VOL_H] = REG_FIELD(0x78, 0, 7),
 	[BAT_VOL_L] = REG_FIELD(0x79, 0, 7),
+
+	[SYS_VOL_H] = REG_FIELD(0x80, 0, 7),
+	[SYS_VOL_L] = REG_FIELD(0x81, 0, 7),
+
+	[VCALIB0_H] = REG_FIELD(0x93, 0, 7),
+	[VCALIB0_L] = REG_FIELD(0x94, 0, 7),
+	
+	[VCALIB1_H] = REG_FIELD(0x95, 0, 7),
+	[VCALIB1_L] = REG_FIELD(0x96, 0, 7),
 };
 
 /* RK817_CODEC_DI2S_CKM */
