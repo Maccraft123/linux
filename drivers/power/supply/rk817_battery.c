@@ -38,14 +38,63 @@ struct rk817_bat {
 	struct regmap *regmap;
 	struct regmap_field *rmap_fields[ARRAY_SIZE(rk817_bat_reg_fields)];
 
+	// dt stuff
+	u32 *ocv_table;
+	int ocv_size; // ARRAY_SIZE anyone? no?
+
 	int design_capacity;
 	int design_qmax;
 
 	int voltage_k;
 	int voltage_b;
 	int res_div;
+	int sample_res;
 	u8 status;
 };
+
+static int rk817_get_reg_hl(struct rk817_bat *battery, int fieldH, int fieldL)
+{
+	int tmp;
+	int out = 0;
+
+	regmap_field_read(battery->rmap_fields[fieldL], &tmp);
+	out |= tmp;
+
+	regmap_field_read(battery->rmap_fields[fieldH], &tmp);
+	out |= tmp << 8;
+
+	return out;
+}
+
+static void rk817_write_reg_hl(struct rk817_bat *battery, int fieldH, int fieldL, int val)
+{
+	uint8_t tmp;
+
+	tmp = val & 0xff;
+	regmap_field_write(battery->rmap_fields[fieldL], tmp);
+	tmp = (val >> 8) & 0xff;
+	regmap_field_write(battery->rmap_fields[fieldH], tmp);
+}
+
+static int rk817_bat_calib(struct rk817_bat *battery)
+{
+	int vcalib0, vcalib1;
+	int ioffset;
+
+	// voltage calibration
+	vcalib0 = rk817_get_reg_hl(battery, VCALIB0_H, VCALIB0_L);
+	vcalib1 = rk817_get_reg_hl(battery, VCALIB1_H, VCALIB1_L);
+
+
+	battery->voltage_k = (4025 - 2300) * 1000 / ((vcalib1 - vcalib0) ? (vcalib1 - vcalib0) : 1);
+	battery->voltage_b = 4025 - (battery->voltage_k * vcalib1) / 1000;
+
+	// current calibration... why?
+	ioffset = rk817_get_reg_hl(battery, IOFFSET_H, IOFFSET_L);
+	rk817_write_reg_hl(battery, CAL_OFFSET_H, CAL_OFFSET_L, ioffset);;
+
+	return 0;
+}
 
 static int rk817_get_charge_now(struct rk817_bat *battery)
 {
@@ -55,14 +104,14 @@ static int rk817_get_charge_now(struct rk817_bat *battery)
 	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H3], &tmp);
 	if (ret)
 		return ret;
-	
+
 	if (!(tmp & 0x80))
 		return -EINVAL;
-	
+
 	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H3], &tmp);
 	if (ret)
 		return ret;
-	val |= tmp << 24;
+	val = tmp << 24;
 
 	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H2], &tmp);
 	if (ret)
@@ -85,29 +134,88 @@ static int rk817_get_charge_now(struct rk817_bat *battery)
 	return charge;
 }
 
-static int rk817_get_reg_hl(struct rk817_bat *battery, int fieldH, int fieldL)
+static int32_t ab_div_c(u32 a, u32 b, u32 c)
 {
+	bool sign;
+	u32 ans = 0x7FFF;
 	int tmp;
-	int out = 0;
 
-	regmap_field_read(battery->rmap_fields[fieldL], &tmp);
-	out |= tmp;
+	sign = ((((a ^ b) ^ c) & 0x80000000) != 0);
+	if (c != 0) {
+		if (sign)
+			c = -c;
+		tmp = (a * b + (c >> 1)) / c;
+		if (tmp < 0x7FFF)
+			ans = tmp;
+	}
 
-	regmap_field_read(battery->rmap_fields[fieldH], &tmp);
-	out |= tmp << 8;
+	if (sign)
+		ans = -ans;
 
-	return out;
+	return ans;
+}
+
+/* XXX WONT MAKE IT INTO MAINLINE FUCKING EVER XXX */
+static u32 interpolate(int value, u32 *table, int size)
+{
+	u8 i;
+	u16 d;
+
+	for (i = 0; i < size; i++) {
+		if (value < table[i])
+			break;
+	}
+
+	if ((i > 0) && (i < size)) {
+		d = (value - table[i - 1]) * (1000 / (size - 1));
+		d /= table[i] - table[i - 1];
+		d = d + (i - 1) * (1000 / (size - 1));
+	} else {
+		d = i * ((1000 + size / 2) / size);
+	}
+
+	if (d > 1000)
+		d = 1000;
+
+	return d;
+}
+
+static int rk817_vol_to_soc(struct rk817_bat *battery, int vol)
+{
+	u32 *ocv_table, tmp;
+	int ocv_size, ocv_soc;
+
+	printk("vol is %d", vol);
+	ocv_table = battery->ocv_table;
+	ocv_size = battery->ocv_size;
+	tmp = interpolate(vol, battery->ocv_table, battery->ocv_size);
+	printk("tmp %d", tmp);
+	ocv_soc = ab_div_c(tmp, 100, 1000);
+
+	return ocv_soc;
 }
 
 static int rk817_bat_get_prop(struct power_supply *ps,
-			      enum power_supply_property prop,
-			      union power_supply_propval *val)
+		enum power_supply_property prop,
+		union power_supply_propval *val)
 {
 	struct rk817_bat *battery = power_supply_get_drvdata(ps);
 	int tmp;
 	int ret = 0;
 
+	// BSP does that on workqueue... we have no workqueue
+	regmap_field_read(battery->rmap_fields[CUR_CALIB_UPD], &tmp);
+	if (tmp == 0)
+	{
+		rk817_bat_calib(battery);
+		regmap_field_write(battery->rmap_fields[CUR_CALIB_UPD], 1);
+	}
+
 	switch (prop) {
+		case POWER_SUPPLY_PROP_CAPACITY:
+			tmp = rk817_get_reg_hl(battery, BAT_VOL_H, BAT_VOL_L);
+			val->intval = rk817_vol_to_soc(battery, 1000 * (battery->voltage_k * tmp / 1000 + battery->voltage_b));
+			break;
 		case POWER_SUPPLY_PROP_STATUS:
 			ret = regmap_field_read(battery->rmap_fields[CHG_STS], &tmp);
 			if (ret)
@@ -153,11 +261,10 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 					break;
 			}
 			break;
-		case POWER_SUPPLY_PROP_VOLTAGE_AVG:
+		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 			tmp = rk817_get_reg_hl(battery, BAT_VOL_H, BAT_VOL_L);
-			val->intval = (battery->voltage_k * tmp / 1000 + battery->voltage_b) * 60 / 46;
+			val->intval = 1000 * ((battery->voltage_k * tmp) / (1000 + battery->voltage_b));
 			break;
-		case POWER_SUPPLY_PROP_CHARGE_FULL:
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 			val->intval = battery->design_capacity * 1000;
 			break;
@@ -173,12 +280,15 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 	return 0;
 }
 
+
+
 static enum power_supply_property rk817_bat_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
-	POWER_SUPPLY_PROP_VOLTAGE_AVG,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 
-	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CAPACITY,
+
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_EMPTY,
@@ -224,10 +334,10 @@ static int rk817_bat_probe(struct platform_device *pdev)
 		const struct reg_field *reg_fields = rk817_bat_reg_fields;
 
 		battery->rmap_fields[i] = devm_regmap_field_alloc(dev, battery->regmap, reg_fields[i]);
-		
+
 		if (IS_ERR(battery->rmap_fields[i])) {
 			dev_err(dev, "cannot allocate regmap field\n");
-		
+
 			return PTR_ERR(battery->rmap_fields[i]);
 		}
 	}
@@ -236,11 +346,22 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	vcalib0 = rk817_get_reg_hl(battery, VCALIB0_H, VCALIB0_L);
 	vcalib1 = rk817_get_reg_hl(battery, VCALIB1_H, VCALIB1_L);
 
+
 	battery->voltage_k = (4025 - 2300) * 1000 / ((vcalib1 - vcalib0) ? (vcalib1 - vcalib0) : 1);
 	battery->voltage_b = 4025 - (battery->voltage_k * vcalib1) / 1000;
 
 	pscfg.drv_data = battery;
 	pscfg.of_node = pdev->dev.of_node;
+
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "ocv_table", battery->ocv_table, battery->ocv_size);
+	if (ret < 0)
+		dev_err(dev, "Error reading OCV table. Dont ask me what OCV is. i dont know either");
+
+	ret = of_property_read_u32(pdev->dev.of_node, "sample_res", &battery->sample_res);
+	if (ret < 0)
+		dev_err(dev, "Error reading sample_res");
+	battery->res_div = (battery->sample_res == 20) ? 1 : 2;
 
 	ret = of_property_read_u32(pdev->dev.of_node, "design_capacity", &battery->design_capacity);
 	if (ret < 0)
@@ -249,6 +370,8 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(pdev->dev.of_node, "design_qmax", &battery->design_qmax);
 	if (ret < 0)
 		dev_err(dev, "Error reading design_qmax");
+
+	// enable stuff
 
 
 	battery->bat_ps = devm_power_supply_register(&pdev->dev, &rk817_desc, &pscfg);

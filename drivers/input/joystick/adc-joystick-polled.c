@@ -17,9 +17,9 @@ struct adc_joystick_polled_axis {
 	s32 range[2];
 	s32 fuzz;
 	s32 flat;
-	int prev_val;
 	int is_analog;
 	struct gpio_desc *gpiod;
+	int prev_val;
 };
 
 struct adc_joystick_polled {
@@ -82,11 +82,7 @@ static void adc_joystick_polled_poll(struct input_dev *input)
 		if (bdev->axes[i].is_analog == 1)
 		{
 			iio_read_channel_raw(&bdev->chans[i], &raw);
-			if (raw - 15 > bdev->axes[i].prev_val || raw + 15 < bdev->axes[i].prev_val)
-			{
-				input_event(input, EV_ABS, bdev->axes[i].code, raw);
-				bdev->axes[i].prev_val = raw;
-			}
+			input_event(input, EV_ABS, bdev->axes[i].code, raw);
 		}
 		else
 		{

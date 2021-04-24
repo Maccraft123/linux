@@ -65,11 +65,11 @@
 				gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
 				linux,code = <KEY_LEFTMETA>; // 0x2c2
 			};
-			//button@3 {
-			//	label = "HP detection";
-			//	gpios = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
-			//	linux,code = <KEY_SOUND>;
-			//};
+			button@3 {
+				label = "HP detection";
+				gpios = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+				linux,code = <KEY_SOUND>;
+			};
         };
 
 	joypad {
@@ -270,7 +270,7 @@
                         "Headphones", "HPOL",
                         "Headphones", "HPOR",
 			"Speaker", "SPKO";
-                simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+                //simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
                 simple-audio-card,pin-switches = "Speaker", "Headphones";
                 simple-audio-card,cpu {
                         sound-dai = <&i2s1_2ch>;
