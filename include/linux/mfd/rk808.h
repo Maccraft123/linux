@@ -499,6 +499,9 @@ enum rk817_bat_fields {
 	CHG_STS = 0,
 	VOL_CALIB_UPD,
 	CUR_CALIB_UPD,
+	OCV_THRE_VOL,
+	OCV_VOL_H,
+	OCV_VOL_L,
 	Q_PRES_H3,
 	Q_PRES_H2,
 	Q_PRES_L1,
@@ -523,26 +526,25 @@ static const struct reg_field rk817_bat_reg_fields[] = {
 	[VOL_CALIB_UPD] = REG_FIELD(0x55, 6, 6),
 	[CUR_CALIB_UPD] = REG_FIELD(0x55, 7, 7),
 
+	[OCV_THRE_VOL] = REG_FIELD(0x62, 0, 7),
+	[OCV_VOL_H] = REG_FIELD(0x63, 0, 7),
+	[OCV_VOL_L] = REG_FIELD(0x64, 0, 7),
+
 	[Q_PRES_H3] = REG_FIELD(0x74, 0, 7),
 	[Q_PRES_H2] = REG_FIELD(0x75, 0, 7),
 	[Q_PRES_L1] = REG_FIELD(0x76, 0, 7),
 	[Q_PRES_L0] = REG_FIELD(0x77, 0, 7),
-
 	[BAT_VOL_H] = REG_FIELD(0x78, 0, 7),
 	[BAT_VOL_L] = REG_FIELD(0x79, 0, 7),
-
 	[SYS_VOL_H] = REG_FIELD(0x80, 0, 7),
 	[SYS_VOL_L] = REG_FIELD(0x81, 0, 7),
 
 	[CAL_OFFSET_H] = REG_FIELD(0x91, 0, 7),
 	[CAL_OFFSET_L] = REG_FIELD(0x92, 0, 7),
-
 	[VCALIB0_H] = REG_FIELD(0x93, 0, 7),
 	[VCALIB0_L] = REG_FIELD(0x94, 0, 7),
-	
 	[VCALIB1_H] = REG_FIELD(0x95, 0, 7),
 	[VCALIB1_L] = REG_FIELD(0x96, 0, 7),
-
 	[IOFFSET_H] = REG_FIELD(0x97, 0, 7),
 	[IOFFSET_L] = REG_FIELD(0x98, 0, 7),
 };
