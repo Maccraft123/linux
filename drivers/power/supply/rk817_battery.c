@@ -40,7 +40,7 @@ struct rk817_bat {
 
 	// dt stuff
 	u32 *ocv_table;
-	int ocv_size; // ARRAY_SIZE anyone? no?
+	u32 ocv_size; // ARRAY_SIZE anyone? no?
 
 	int design_capacity;
 	int design_qmax;
@@ -134,65 +134,16 @@ static int rk817_get_charge_now(struct rk817_bat *battery)
 	return charge;
 }
 
-static int32_t ab_div_c(u32 a, u32 b, u32 c)
-{
-	bool sign;
-	u32 ans = 0x7FFF;
-	int tmp;
-
-	sign = ((((a ^ b) ^ c) & 0x80000000) != 0);
-	if (c != 0) {
-		if (sign)
-			c = -c;
-		tmp = (a * b + (c >> 1)) / c;
-		if (tmp < 0x7FFF)
-			ans = tmp;
-	}
-
-	if (sign)
-		ans = -ans;
-
-	return ans;
-}
-
 /* XXX WONT MAKE IT INTO MAINLINE FUCKING EVER XXX */
-static u32 interpolate(int value, u32 *table, int size)
-{
-	u8 i;
-	u16 d;
-
-	for (i = 0; i < size; i++) {
-		if (value < table[i])
-			break;
-	}
-
-	if ((i > 0) && (i < size)) {
-		d = (value - table[i - 1]) * (1000 / (size - 1));
-		d /= table[i] - table[i - 1];
-		d = d + (i - 1) * (1000 / (size - 1));
-	} else {
-		d = i * ((1000 + size / 2) / size);
-	}
-
-	if (d > 1000)
-		d = 1000;
-
-	return d;
-}
-
 static int rk817_vol_to_soc(struct rk817_bat *battery, int vol)
 {
-	u32 *ocv_table, tmp;
-	int ocv_size, ocv_soc;
+	int out;
 
 	printk("vol is %d", vol);
-	ocv_table = battery->ocv_table;
-	ocv_size = battery->ocv_size;
-	tmp = interpolate(vol, battery->ocv_table, battery->ocv_size);
-	printk("tmp %d", tmp);
-	ocv_soc = ab_div_c(tmp, 100, 1000);
+	
+	out = (vol - 3500)/6;
 
-	return ocv_soc;
+	return out;
 }
 
 static int rk817_bat_get_prop(struct power_supply *ps,
@@ -213,8 +164,8 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 
 	switch (prop) {
 		case POWER_SUPPLY_PROP_CAPACITY:
-			tmp = rk817_get_reg_hl(battery, BAT_VOL_H, BAT_VOL_L);
-			val->intval = rk817_vol_to_soc(battery, 1000 * (battery->voltage_k * tmp / 1000 + battery->voltage_b));
+			tmp = rk817_get_reg_hl(battery, OCV_VOL_H, OCV_VOL_L);
+			val->intval = rk817_vol_to_soc(battery, ((battery->voltage_k * tmp) / (1000 + battery->voltage_b)));
 			break;
 		case POWER_SUPPLY_PROP_STATUS:
 			ret = regmap_field_read(battery->rmap_fields[CHG_STS], &tmp);
@@ -353,10 +304,29 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	pscfg.drv_data = battery;
 	pscfg.of_node = pdev->dev.of_node;
 
+	int length;
+	size_t size;
+	if (!of_find_property(pdev->dev.of_node, "ocv_table", &length)) {
+		dev_err(dev, "ocv_table not found!\n");
+		return -EINVAL;
+	}
 
-	ret = of_property_read_u32_array(pdev->dev.of_node, "ocv_table", battery->ocv_table, battery->ocv_size);
+	battery->ocv_size = length / sizeof(u32);
+	if (battery->ocv_size <= 0) {
+		dev_err(dev, "invalid ocv table\n");
+		return -EINVAL;
+	}
+
+	size = sizeof(*battery->ocv_table) * battery->ocv_size;
+	battery->ocv_table = devm_kzalloc(battery->dev, size, GFP_KERNEL);
+	if (!battery->ocv_table)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "ocv_table", battery->ocv_table,
+					 battery->ocv_size);
 	if (ret < 0)
-		dev_err(dev, "Error reading OCV table. Dont ask me what OCV is. i dont know either");
+		return ret;
+
 
 	ret = of_property_read_u32(pdev->dev.of_node, "sample_res", &battery->sample_res);
 	if (ret < 0)
@@ -372,6 +342,7 @@ static int rk817_bat_probe(struct platform_device *pdev)
 		dev_err(dev, "Error reading design_qmax");
 
 	// enable stuff
+	regmap_field_write(battery->rmap_fields[OCV_THRE_VOL], 0xff);
 
 
 	battery->bat_ps = devm_power_supply_register(&pdev->dev, &rk817_desc, &pscfg);
