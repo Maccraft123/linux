@@ -199,9 +199,7 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	struct rk817_bat *battery;
 	struct device *dev = &pdev->dev;
 	struct power_supply_config pscfg = {};
-	int i, vcalib0, vcalib1;
-	int *tmp = 0;
-	int ret;
+	int i, ret;
 
 	if (!of_device_is_available(pdev->dev.of_node))
 		return -ENODEV;
