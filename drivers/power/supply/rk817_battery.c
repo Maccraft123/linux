@@ -34,22 +34,16 @@ struct rk817_bat {
 	struct i2c_client *client;
 
 	struct power_supply *bat_ps;
+	struct power_supply_battery_info info;
 
 	struct regmap *regmap;
 	struct regmap_field *rmap_fields[ARRAY_SIZE(rk817_bat_reg_fields)];
 
-	// dt stuff
-	u32 *ocv_table;
-	u32 ocv_size; // ARRAY_SIZE anyone? no?
-
-	int design_capacity;
-	int design_qmax;
-
+	// info stuff
 	int voltage_k;
 	int voltage_b;
 	int res_div;
 	int sample_res;
-	u8 status;
 };
 
 static int rk817_get_reg_hl(struct rk817_bat *battery, int fieldH, int fieldL)
@@ -134,18 +128,6 @@ static int rk817_get_charge_now(struct rk817_bat *battery)
 	return charge;
 }
 
-/* XXX WONT MAKE IT INTO MAINLINE FUCKING EVER XXX */
-static int rk817_vol_to_soc(struct rk817_bat *battery, int vol)
-{
-	int out;
-
-	printk("vol is %d", vol);
-	
-	out = (vol - 3500)/6;
-
-	return out;
-}
-
 static int rk817_bat_get_prop(struct power_supply *ps,
 		enum power_supply_property prop,
 		union power_supply_propval *val)
@@ -154,7 +136,6 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 	int tmp;
 	int ret = 0;
 
-	// BSP does that on workqueue... we have no workqueue
 	regmap_field_read(battery->rmap_fields[CUR_CALIB_UPD], &tmp);
 	if (tmp == 0)
 	{
@@ -163,10 +144,6 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 	}
 
 	switch (prop) {
-		case POWER_SUPPLY_PROP_CAPACITY:
-			tmp = rk817_get_reg_hl(battery, OCV_VOL_H, OCV_VOL_L);
-			val->intval = rk817_vol_to_soc(battery, ((battery->voltage_k * tmp) / (1000 + battery->voltage_b)));
-			break;
 		case POWER_SUPPLY_PROP_STATUS:
 			ret = regmap_field_read(battery->rmap_fields[CHG_STS], &tmp);
 			if (ret)
@@ -187,7 +164,7 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 					break;
 				default:
 					val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
-					printk("Error getting battery value, returned %d", tmp);
+					printk("Error getting battery value, val %d", tmp);
 					return -EINVAL;
 
 			}
@@ -212,15 +189,15 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 					break;
 			}
 			break;
+		case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
+			val->intval = battery->info.voltage_min_design_uv;
+			break;
+		case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+			val->intval = battery->info.voltage_max_design_uv;
+			break;
 		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 			tmp = rk817_get_reg_hl(battery, BAT_VOL_H, BAT_VOL_L);
 			val->intval = 1000 * ((battery->voltage_k * tmp) / (1000 + battery->voltage_b));
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-			val->intval = battery->design_capacity * 1000;
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_EMPTY:
-			val->intval = 0;
 			break;
 		case POWER_SUPPLY_PROP_CHARGE_NOW:
 			val->intval = rk817_get_charge_now(battery);
@@ -237,11 +214,8 @@ static enum power_supply_property rk817_bat_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-
-	POWER_SUPPLY_PROP_CAPACITY,
-
-	POWER_SUPPLY_PROP_CHARGE_NOW,
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_EMPTY,
 };
 
@@ -253,12 +227,13 @@ static const struct power_supply_desc rk817_desc = {
 	.get_property = rk817_bat_get_prop,
 };
 
+#ifdef CONFIG_OF
 static const struct of_device_id rk817_bat_of_match[] = {
 	{ .compatible = "rk817,battery", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, rk817_bat_of_match);
-
+#endif
 
 static int rk817_bat_probe(struct platform_device *pdev)
 {
@@ -304,48 +279,19 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	pscfg.drv_data = battery;
 	pscfg.of_node = pdev->dev.of_node;
 
-	int length;
-	size_t size;
-	if (!of_find_property(pdev->dev.of_node, "ocv_table", &length)) {
-		dev_err(dev, "ocv_table not found!\n");
-		return -EINVAL;
-	}
-
-	battery->ocv_size = length / sizeof(u32);
-	if (battery->ocv_size <= 0) {
-		dev_err(dev, "invalid ocv table\n");
-		return -EINVAL;
-	}
-
-	size = sizeof(*battery->ocv_table) * battery->ocv_size;
-	battery->ocv_table = devm_kzalloc(battery->dev, size, GFP_KERNEL);
-	if (!battery->ocv_table)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(pdev->dev.of_node, "ocv_table", battery->ocv_table,
-					 battery->ocv_size);
-	if (ret < 0)
-		return ret;
-
-
 	ret = of_property_read_u32(pdev->dev.of_node, "sample_res", &battery->sample_res);
 	if (ret < 0)
 		dev_err(dev, "Error reading sample_res");
 	battery->res_div = (battery->sample_res == 20) ? 1 : 2;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "design_capacity", &battery->design_capacity);
-	if (ret < 0)
-		dev_err(dev, "Error reading design_capacity");
-
-	ret = of_property_read_u32(pdev->dev.of_node, "design_qmax", &battery->design_qmax);
-	if (ret < 0)
-		dev_err(dev, "Error reading design_qmax");
-
-	// enable stuff
-	regmap_field_write(battery->rmap_fields[OCV_THRE_VOL], 0xff);
-
 
 	battery->bat_ps = devm_power_supply_register(&pdev->dev, &rk817_desc, &pscfg);
+
+	ret = power_supply_get_battery_info(battery->bat_ps, &battery->info);
+	if (ret) {
+		dev_err(dev, "Unable to get battery info: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
