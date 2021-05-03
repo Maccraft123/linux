@@ -39,7 +39,7 @@ struct rk817_bat {
 	struct regmap *regmap;
 	struct regmap_field *rmap_fields[ARRAY_SIZE(rk817_bat_reg_fields)];
 
-	// info stuff
+	/* FIXME: do i move it into other struct? */
 	int voltage_k;
 	int voltage_b;
 	int res_div;
@@ -75,7 +75,7 @@ static int rk817_bat_calib(struct rk817_bat *battery)
 	int vcalib0, vcalib1;
 	int ioffset;
 
-	// voltage calibration
+	/* calibrate voltage */
 	vcalib0 = rk817_get_reg_hl(battery, VCALIB0_H, VCALIB0_L);
 	vcalib1 = rk817_get_reg_hl(battery, VCALIB1_H, VCALIB1_L);
 
@@ -83,49 +83,11 @@ static int rk817_bat_calib(struct rk817_bat *battery)
 	battery->voltage_k = (4025 - 2300) * 1000 / ((vcalib1 - vcalib0) ? (vcalib1 - vcalib0) : 1);
 	battery->voltage_b = 4025 - (battery->voltage_k * vcalib1) / 1000;
 
-	// current calibration... why?
+	/* calibrate current */
 	ioffset = rk817_get_reg_hl(battery, IOFFSET_H, IOFFSET_L);
 	rk817_write_reg_hl(battery, CAL_OFFSET_H, CAL_OFFSET_L, ioffset);;
 
 	return 0;
-}
-
-static int rk817_get_charge_now(struct rk817_bat *battery)
-{
-	u32 val = 0;
-	int tmp, ret, charge;
-
-	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H3], &tmp);
-	if (ret)
-		return ret;
-
-	if (!(tmp & 0x80))
-		return -EINVAL;
-
-	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H3], &tmp);
-	if (ret)
-		return ret;
-	val = tmp << 24;
-
-	ret = regmap_field_read(battery->rmap_fields[Q_PRES_H2], &tmp);
-	if (ret)
-		return ret;
-	val |= tmp << 16;
-
-	ret = regmap_field_read(battery->rmap_fields[Q_PRES_L1], &tmp);
-	if (ret)
-		return ret;
-	val |= tmp << 8;
-
-	ret = regmap_field_read(battery->rmap_fields[Q_PRES_L0], &tmp);
-	if (ret)
-		return ret;
-	val |= tmp; 
-
-	charge = (val / 3600) * (172 / battery->res_div);
-
-	printk("charge: %u, val: %u", charge, val);
-	return charge;
 }
 
 static int rk817_bat_get_prop(struct power_supply *ps,
@@ -136,6 +98,7 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 	int tmp;
 	int ret = 0;
 
+	/* recalibrate voltage and current readings when we need to */
 	regmap_field_read(battery->rmap_fields[CUR_CALIB_UPD], &tmp);
 	if (tmp == 0)
 	{
@@ -192,15 +155,12 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 		case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 			val->intval = battery->info.voltage_min_design_uv;
 			break;
-		case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-			val->intval = battery->info.voltage_max_design_uv;
-			break;
 		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 			tmp = rk817_get_reg_hl(battery, BAT_VOL_H, BAT_VOL_L);
 			val->intval = 1000 * ((battery->voltage_k * tmp) / (1000 + battery->voltage_b));
 			break;
-		case POWER_SUPPLY_PROP_CHARGE_NOW:
-			val->intval = rk817_get_charge_now(battery);
+		case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+			val->intval = battery->info.voltage_max_design_uv;
 			break;
 		default:
 			return -EINVAL;
@@ -216,7 +176,6 @@ static enum power_supply_property rk817_bat_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
-	POWER_SUPPLY_PROP_CHARGE_EMPTY,
 };
 
 static const struct power_supply_desc rk817_desc = {
@@ -262,23 +221,19 @@ static int rk817_bat_probe(struct platform_device *pdev)
 		battery->rmap_fields[i] = devm_regmap_field_alloc(dev, battery->regmap, reg_fields[i]);
 
 		if (IS_ERR(battery->rmap_fields[i])) {
-			dev_err(dev, "cannot allocate regmap field\n");
+			dev_err(dev, "Unable to allocate regmap field\n");
 
 			return PTR_ERR(battery->rmap_fields[i]);
 		}
 	}
 
-	/* voltage calibration data */
-	vcalib0 = rk817_get_reg_hl(battery, VCALIB0_H, VCALIB0_L);
-	vcalib1 = rk817_get_reg_hl(battery, VCALIB1_H, VCALIB1_L);
 
-
-	battery->voltage_k = (4025 - 2300) * 1000 / ((vcalib1 - vcalib0) ? (vcalib1 - vcalib0) : 1);
-	battery->voltage_b = 4025 - (battery->voltage_k * vcalib1) / 1000;
+	rk817_bat_calib(battery);
 
 	pscfg.drv_data = battery;
 	pscfg.of_node = pdev->dev.of_node;
 
+	/* some boards may use different values for sample resistor, we have to correct for that */
 	ret = of_property_read_u32(pdev->dev.of_node, "sample_res", &battery->sample_res);
 	if (ret < 0)
 		dev_err(dev, "Error reading sample_res");
