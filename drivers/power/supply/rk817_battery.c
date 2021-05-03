@@ -79,7 +79,7 @@ static int rk817_bat_calib(struct rk817_bat *battery)
 	vcalib0 = rk817_get_reg_hl(battery, VCALIB0_H, VCALIB0_L);
 	vcalib1 = rk817_get_reg_hl(battery, VCALIB1_H, VCALIB1_L);
 
-
+	/* values were taken from BSP kernel */
 	battery->voltage_k = (4025 - 2300) * 1000 / ((vcalib1 - vcalib0) ? (vcalib1 - vcalib0) : 1);
 	battery->voltage_b = 4025 - (battery->voltage_k * vcalib1) / 1000;
 
@@ -95,11 +95,14 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 		union power_supply_propval *val)
 {
 	struct rk817_bat *battery = power_supply_get_drvdata(ps);
-	int tmp;
+	int tmp = 0;
 	int ret = 0;
 
-	/* recalibrate voltage and current readings when we need to */
-	regmap_field_read(battery->rmap_fields[CUR_CALIB_UPD], &tmp);
+	/* recalibrate voltage and current readings if we need to */
+	ret = regmap_field_read(battery->rmap_fields[CUR_CALIB_UPD], &tmp);
+	if (ret)
+		return ret;
+	printk("CUR_CALIB_UPD is %d", tmp);
 	if (tmp == 0)
 	{
 		rk817_bat_calib(battery);
@@ -127,7 +130,7 @@ static int rk817_bat_get_prop(struct power_supply *ps,
 					break;
 				default:
 					val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
-					printk("Error getting battery value, val %d", tmp);
+					printk("Error getting battery value");
 					return -EINVAL;
 
 			}
@@ -226,8 +229,6 @@ static int rk817_bat_probe(struct platform_device *pdev)
 	}
 
 
-	rk817_bat_calib(battery);
-
 	pscfg.drv_data = battery;
 	pscfg.of_node = pdev->dev.of_node;
 
@@ -237,9 +238,9 @@ static int rk817_bat_probe(struct platform_device *pdev)
 		dev_err(dev, "Error reading sample_res");
 	battery->res_div = (battery->sample_res == 20) ? 1 : 2;
 
-
 	battery->bat_ps = devm_power_supply_register(&pdev->dev, &rk817_desc, &pscfg);
 
+	rk817_bat_calib(battery);
 	ret = power_supply_get_battery_info(battery->bat_ps, &battery->info);
 	if (ret) {
 		dev_err(dev, "Unable to get battery info: %d\n", ret);
